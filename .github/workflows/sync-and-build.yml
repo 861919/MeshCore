@@ -1,0 +1,73 @@
+name: Auto Sync and Build ProMicro Firmware
+
+on:
+  schedule:
+    - cron: '0 2 * * *' # Проверка обновлений каждый день в 02:00 ночи по UTC (примерно 05:00 по Москве)
+  workflow_dispatch: # Кнопка для ручного запуска в любое время
+
+jobs:
+  sync-and-build:
+    runs-on: ubuntu-latest
+    steps:
+      # 1. Скачиваем ветку со всей историей изменений
+      - name: Checkout custom branch
+        uses: actions/checkout@v4
+        with:
+          ref: Promicro-e22p
+          fetch-depth: 0
+
+      # 2. Настраиваем виртуального пользователя Git
+      - name: Configure Git
+        run: |
+          git config --global user.name 'GitHub Actions Bot'
+          git config --global user.email 'actions@github.com'
+
+      # 3. Подключаем официальный репозиторий и забираем обновления
+      - name: Sync with Official MeshCore
+        run: |
+          git remote add upstream https://github.com/meshcore-dev/MeshCore
+          git fetch upstream
+          
+          # Накладываем изменения ПОВЕРХ актуальной официальной ветки main
+          git rebase upstream/main || exit 1
+          
+          # Принудительно обновляем ветку в репозитории
+          git push origin Promicro-e22p --force
+
+      # 4. Устанавливаем Python и PlatformIO для сборки прошивки
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      # 5. Кэшируем библиотеки PlatformIO (чтобы сборка шла быстрее в следующий раз)
+      - name: Cache PlatformIO
+        uses: actions/cache@v4
+        with:
+          path: ~/.platformio
+          key: ${{ runner.os }}-platformio
+
+      - name: Install PlatformIO
+        run: |
+          python -m pip install --upgrade pip
+          pip install --upgrade platformio
+
+      # 6. Компилируем прошивку ТОЛЬКО для окружений ProMicro
+      - name: Build MeshCore ProMicro Environments
+        run: |
+          pio run -e ProMicro_repeater \
+                  -e ProMicro_repeater_bridge_rs232_serial1 \
+                  -e ProMicro_room_server \
+                  -e ProMicro_terminal_chat \
+                  -e ProMicro_companion_radio_usb \
+                  -e ProMicro_companion_radio_ble \
+                  -e ProMicro_sensor \
+                  -e ProMicro_kiss_modem
+
+      # 7. Сохраняем только готовые бинарники в один архив
+      - name: Upload ProMicro Firmware Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: meshcore-promicro-compiled
+          path: .pio/build/ProMicro_*/firmware.*
+          if-no-files-found: error
