@@ -19,13 +19,13 @@ jobs:
           ref: Promicro-e22p
           fetch-depth: 0
 
-      # 2. Настраиваем виртуального пользователя Git
+      # Настраиваем виртуального пользователя Git
       - name: Configure Git
         run: |
           git config --global user.name 'GitHub Actions Bot'
           git config --global user.email 'actions@github.com'
 
-      # 3. Подключаем официальный репозиторий и забираем обновления
+      # Подключаем официальный репозиторий и забираем обновления
       - name: Sync with Official MeshCore
         run: |
           git remote add upstream https://github.com/meshcore-dev/MeshCore
@@ -37,41 +37,21 @@ jobs:
           # Принудительно обновляем ветку в репозитории
           git push origin Promicro-e22p --force
 
-      # 4. Устанавливаем Python и PlatformIO для сборки прошивки
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.10'
+      # Вызываем официальное действие авторов для настройки Python/PlatformIO
+      - name: Setup Build Environment
+        uses: ./.github/actions/setup-build-environment
 
-      # 5. Кэшируем библиотеки PlatformIO (чтобы сборка шла быстрее в следующий раз)
-      - name: Cache PlatformIO
-        uses: actions/cache@v4
-        with:
-          path: ~/.platformio
-          key: ${{ runner.os }}-platformio
+      # Запускаем официальный build.sh с фильтром по плате Promicro
+      # Он сам скомпилирует код и переведет его в .uf2 файлы
+      - name: Build Firmware for ProMicro
+        env:
+          FIRMWARE_VERSION: "custom-build"
+        run: /usr/bin/env bash build.sh build-matching-firmwares ProMicro
 
-      - name: Install PlatformIO
-        run: |
-          python -m pip install --upgrade pip
-          pip install --upgrade platformio
-
-      # 6. Компилируем прошивку ТОЛЬКО для окружений ProMicro
-      - name: Build MeshCore ProMicro Environments
-        run: |
-          pio run -t create_uf2 \
-                  -e ProMicro_repeater \
-                  -e ProMicro_repeater_bridge_rs232_serial1 \
-                  -e ProMicro_room_server \
-                  -e ProMicro_terminal_chat \
-                  -e ProMicro_companion_radio_usb \
-                  -e ProMicro_companion_radio_ble \
-                  -e ProMicro_sensor \
-                  -e ProMicro_kiss_modem
-
-      # 7. Сохраняем только готовые бинарники в один архив
-      - name: Upload ProMicro UF2 Artifacts
+      # Сохраняем .uf2 и .zip архивы из папки out
+      - name: Upload ProMicro Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: meshcore-promicro-uf2
-          path: .pio/build/ProMicro_*/firmware.uf2
+          name: meshcore-promicro-official-out
+          path: out/
           if-no-files-found: error
