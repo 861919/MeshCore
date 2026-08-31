@@ -1,6 +1,9 @@
 name: Auto Sync and Build ProMicro Firmware
 
 on:
+  push:
+    branches:
+      - Promicro-e22p # Запуск сборки при любом изменении в этой ветке
   schedule:
     - cron: '0 2 * * *' # Проверка обновлений каждый день в 02:00 ночи по UTC (примерно 05:00 по Москве)
   workflow_dispatch: # Кнопка для ручного запуска в любое время
