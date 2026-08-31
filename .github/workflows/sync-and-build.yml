@@ -1,9 +1,9 @@
 name: Auto Sync and Build ProMicro Firmware
 
 on:
-  push:
-    branches:
-      - Promicro-e22p # Запуск сборки при любом изменении в этой ветке
+#  push:
+#    branches:
+#      - Promicro-e22p # Запуск сборки при любом изменении в этой ветке
   schedule:
     - cron: '0 2 * * *' # Проверка обновлений каждый день в 02:00 ночи по UTC (примерно 05:00 по Москве)
   workflow_dispatch: # Кнопка для ручного запуска в любое время
@@ -58,7 +58,8 @@ jobs:
       # 6. Компилируем прошивку ТОЛЬКО для окружений ProMicro
       - name: Build MeshCore ProMicro Environments
         run: |
-          pio run -e ProMicro_repeater \
+          pio run -t create_uf2 \
+                  -e ProMicro_repeater \
                   -e ProMicro_repeater_bridge_rs232_serial1 \
                   -e ProMicro_room_server \
                   -e ProMicro_terminal_chat \
@@ -68,9 +69,9 @@ jobs:
                   -e ProMicro_kiss_modem
 
       # 7. Сохраняем только готовые бинарники в один архив
-      - name: Upload ProMicro Firmware Artifacts
+      - name: Upload ProMicro UF2 Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: meshcore-promicro-compiled
-          path: .pio/build/ProMicro_*/firmware.*
+          name: meshcore-promicro-uf2
+          path: .pio/build/ProMicro_*/firmware.uf2
           if-no-files-found: error
