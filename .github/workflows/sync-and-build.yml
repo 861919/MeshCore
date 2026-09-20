@@ -1,0 +1,57 @@
+name: Auto Sync and Build ProMicro Firmware
+
+on:
+#  push:
+#    branches:
+#      - Promicro-e22 # Запуск сборки при любом изменении в этой ветке
+  #schedule:
+    #- cron: '0 2 * * *' # Проверка обновлений каждый день в 02:00 ночи по UTC (примерно 05:00 по Москве)
+  workflow_dispatch: # Кнопка для ручного запуска в любое время
+
+jobs:
+  sync-and-build:
+    runs-on: ubuntu-latest
+    steps:
+      # 1. Скачиваем ветку со всей историей изменений
+      - name: Checkout custom branch
+        uses: actions/checkout@v4
+        with:
+          ref: Promicro-e22
+          fetch-depth: 0
+
+      # Настраиваем виртуального пользователя Git
+      - name: Configure Git
+        run: |
+          git config --global user.name 'GitHub Actions Bot'
+          git config --global user.email 'actions@github.com'
+
+      # Подключаем официальный репозиторий и забираем обновления
+      - name: Sync with Official MeshCore
+        run: |
+          git remote add upstream https://github.com/meshcore-dev/MeshCore
+          git fetch upstream
+          
+          # Накладываем изменения ПОВЕРХ актуальной официальной ветки main
+          git rebase upstream/main || exit 1
+          
+          # Принудительно обновляем ветку в репозитории
+          git push origin Promicro-e22 --force
+
+      # Вызываем официальное действие авторов для настройки Python/PlatformIO
+      - name: Setup Build Environment
+        uses: ./.github/actions/setup-build-environment
+
+      # Запускаем официальный build.sh с фильтром по плате Promicro
+      # Он сам скомпилирует код и переведет его в .uf2 файлы
+      - name: Build Firmware for ProMicro
+        env:
+          FIRMWARE_VERSION: "custom-build"
+        run: /usr/bin/env bash build.sh build-matching-firmwares ProMicro
+
+      # Сохраняем .uf2 и .zip архивы из папки out
+      - name: Upload ProMicro Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: meshcore-promicro-official-out
+          path: out/
+          if-no-files-found: error
