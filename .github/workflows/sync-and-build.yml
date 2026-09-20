@@ -3,7 +3,7 @@ name: Auto Sync and Build ProMicro Firmware
 on:
 #  push:
 #    branches:
-#      - Promicro-e22 # Запуск сборки при любом изменении в этой ветке
+#      - promicro-e22 # Запуск сборки при любом изменении в этой ветке
   #schedule:
     #- cron: '0 2 * * *' # Проверка обновлений каждый день в 02:00 ночи по UTC (примерно 05:00 по Москве)
   workflow_dispatch: # Кнопка для ручного запуска в любое время
@@ -16,7 +16,7 @@ jobs:
       - name: Checkout custom branch
         uses: actions/checkout@v4
         with:
-          ref: Promicro-e22
+          ref: promicro-e22
           fetch-depth: 0
 
       # Настраиваем виртуального пользователя Git
@@ -35,7 +35,7 @@ jobs:
           git rebase upstream/main || exit 1
           
           # Принудительно обновляем ветку в репозитории
-          git push origin Promicro-e22 --force
+          git push origin promicro-e22 --force
 
       # Вызываем официальное действие авторов для настройки Python/PlatformIO
       - name: Setup Build Environment
